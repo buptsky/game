@@ -1,0 +1,616 @@
+<!doctype html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="description" content="原生JS编写的2048游戏程序，测试兼容IE7及以上浏览器，含详细代码说明" />
+    <title>2048game</title>
+    <style type="text/css">
+        html,body{
+            margin: 0;
+            padding: 0;
+        }
+        /*游戏主面板，大小480px*480px*/
+        #gridPanel{
+            width:480px;
+            height:480px;
+            margin:0 auto;
+            background-color:#bbada0;
+            border-radius:10px;/*IE9+、Firefox 4+、Chrome、Safari 5+ 以及 Opera 支持 border-radius 属性。*/
+            position:relative;/*设置相对定位作为滑动数字块绝对定位参照点*/
+        }
+        /*网格单元（背景网格和移动网格）大小100px*100px*/
+        .grid,.cell{
+            width:100px;
+            height:100px;
+            border-radius:6px;
+        }
+        /*设置背景网格间距为16px,16*4+100*4+16=480px等间距分割主面板*/
+        .grid{
+            float:left;
+            margin:16px 0 0 16px;
+            background-color:#ccc0b3;
+        }
+        /*设定移动网格，尺寸同背景网格*/
+        .cell{
+            text-align:center;/*使文字水平居中*/
+            line-height:100px;/*使文字竖直居中*/
+            color:#776e65;
+            font-size:60px;
+            position:absolute;/*绝对定位移动网格*/
+        }
+        /*定位移动网格，每一行拥有同样的top
+          每一列拥有同样的left*/
+        #c00,#c01,#c02,#c03{top:16px;}
+        #c00,#c10,#c20,#c30{left:16px;}
+        #c10,#c11,#c12,#c13{top:132px;}
+        #c01,#c11,#c21,#c31{left:132px;}
+        #c20,#c21,#c22,#c23{top:248px;}
+        #c02,#c12,#c22,#c32{left:248px;}
+        #c30,#c31,#c32,#c33{top:364px;}
+        #c03,#c13,#c23,#c33{left:364px;}
+        /*为不同的得分设置背景颜色以区分*/
+        .n2{background-color:#eee3da;}
+        .n4{background-color:#ede0c8;}
+        .n8{background-color:#f2b179;}
+        .n16{background-color:#f59563;}
+        .n32{background-color:#f67c5f;}
+        .n64{background-color:#f65e3b;}
+        .n128{background-color:#edcf72;}
+        .n256{background-color:#edcc61;}
+        .n512{background-color:#9c0;}
+        .n1024{background-color:#33b5e5;}
+        .n2048{background-color:#09c;}
+        .n4096{background-color:#a6c;}
+        .n8192{background-color:#93c;}
+        /*8分以上得分网格前景文字颜色设置为白色*/
+        .n8,.n16,.n32,.n64,.n128,.n256,.n512,.n1024,.n2048,.n4096,.n8192{color:#fff;}
+        .n1024,.n2048,.n4096,.n8192{font-size:40px;}
+        /*显示总得分*/
+        p{width:480px;margin:0 auto;font-family:Arial;font-weight:bold;font-size:40px;padding-top:15px;color: #369;}
+        /*game over
+        界面样式*/
+        #gameOver{width:100%;height:100%;position:absolute;top:0px;left:0px;display:none;}
+        /*游戏结束界面背景，透明度50%*/
+        #gameOver div{
+            width:100%;
+            height:100%;
+            background-color:#555;
+            opacity:0.5;
+            filter:alpha(opacity=50);/*IE8及更低级IE浏览器透明效果实现*/
+        }
+        #gameOver p{position:absolute;border-radius:10px;top:200px;left:40%;width:300px;height:200px;border:1px solid #edcf72;line-height:1.6em;text-align:center;background-color:#fff;}
+        .button{padding:10px;background-color:#9f8d77;border-radius:6px;color:#fff;cursor:pointer;
+            text-decoration: none;}
+    </style>
+</head>
+<body>
+<p>Score:<span id="score"></span></p>
+<div id="gridPanel">
+    <!--背景单元格-->
+    <div id="g00" class="grid"></div>
+    <div id="g01" class="grid"></div>
+    <div id="g02" class="grid"></div>
+    <div id="g03" class="grid"></div>
+
+    <div id="g10" class="grid"></div>
+    <div id="g11" class="grid"></div>
+    <div id="g12" class="grid"></div>
+    <div id="g13" class="grid"></div>
+
+    <div id="g20" class="grid"></div>
+    <div id="g21" class="grid"></div>
+    <div id="g22" class="grid"></div>
+    <div id="g23" class="grid"></div>
+
+    <div id="g30" class="grid"></div>
+    <div id="g31" class="grid"></div>
+    <div id="g32" class="grid"></div>
+    <div id="g33" class="grid"></div>
+
+    <!--前景单元格-->
+    <div id="c00" class="cell n2">2</div>
+    <div id="c01" class="cell n4">4</div>
+    <div id="c02" class="cell n8">8</div>
+    <div id="c03" class="cell n16">16</div>
+
+    <div id="c10" class="cell n32">32</div>
+    <div id="c11" class="cell n64">64</div>
+    <div id="c12" class="cell n128">128</div>
+    <div id="c13" class="cell n256">256</div>
+
+    <div id="c20" class="cell n512">512</div>
+    <div id="c21" class="cell n1024">1024</div>
+    <div id="c22" class="cell n2048">2048</div>
+    <div id="c23" class="cell n4096">4096</div>
+
+    <div id="c30" class="cell n8192">8192</div>
+    <div id="c31" class="cell"></div>
+    <div id="c32" class="cell"></div>
+    <div id="c33" class="cell"></div>
+</div>
+
+<!--Game Over!界面-->
+<div id="gameOver">
+    <div><!--灰色半透明北景--></div>
+    <!--前景小窗-->
+    <p>Game Over!<br/>
+        Score:<span id="finalScore"></span><br/>
+        <a href="javascript:void(0)" class="button" id="restart" style="font-size:30px;" onclick="game.start()">&hearts;Try again!</a>
+    </p>
+</div>
+</body>
+
+<script>
+    /*game对象装载和游戏相关的所有状态和相关函数；
+      start->游戏启动时调用函数
+      isFull->判断4*4网格是否已经被填满
+      randomNum->在随机位置生成2或4，用于每次操作后的新数据填充
+      canLeft,canRight,canUp,canDown->判断各个方向上是否可以进行网格移动
+      getNextRight，getNextLeft，getNextDown，getNextUp->用于获取指定方向下一个位置不为0的数字
+      moveLeftInRow，moveRightInRow，moveUpInCol，moveDownInCol->单行或单列的移动操作
+    */
+    var game={
+        data:[],//存储4*4网格的所有数字
+        score:0,//游戏统计分数
+        state:1,
+        RUNNING:1,
+        GAME_OVER:0,
+        PLAYING:2,//动画正在播放中
+        start:function(){//启动游戏时调用
+            /*data数组用于保存4*4网格状态*/
+            this.data=[ [0,0,0,0],
+                [0,0,0,0],
+                [0,0,0,0],
+                [0,0,0,0] ];
+            //设置初始分数和游戏状态
+            this.score=0;
+            this.state=this.RUNNING;
+            //隐藏游戏结束状态面板（可能非必需）
+            var div=document.getElementById("gameOver");
+            div.style.display="none";
+            //在随机位置生成2或4，用于游戏起始状态
+            this.randomNum();
+            this.randomNum();
+            //document.write(this.data.join("<br/>"));
+            this.updateView();
+        },
+        /*判断网格是否已经被填满，
+         遍历data数组，只要发现==0即返回false，否则返回true*/
+        isFull:function(){
+            for(var row=0;row<4;row++){
+                for(var col=0;col<4;col++){
+                    if(this.data[row][col]==0){
+                        return false;
+                    }
+                }
+            }
+            return true;
+        },
+        //在随机位置生成2或4
+        randomNum:function(){
+            if(this.isFull()){return;}//网格被占满则不生成
+            /*
+             随机在0到3行中生成一个行下标row
+             随机在0到3列中生成一个列下标col
+             如果该位置==0，随机选择2或4，放入该位置并退出循环*/
+            while(true){
+                // Math.random()生成0-1的随机数，将其*4并向下取整得到0-3随机数
+                var row=Math.floor(Math.random()*4);
+                var col=Math.floor(Math.random()*4);
+                if(this.data[row][col]==0){
+                    this.data[row][col]=Math.random()<0.5?2:4;
+                    break;
+                }
+            }
+        },
+
+        //以下canLeft,canRight,canUp,canDown对应的函数用于移动可行性判断
+
+        canLeft:function(){
+            /*遍历每个元素（最左侧列除外），只要发现任意元素左侧数为0（网格可移动），或者当前值等于左侧值（网格可合并）则返回              true，否循环正常结束*/
+            for(var row=0;row<4;row++){
+                for(var col=1;col<4;col++){
+                    //首先该判断元素不能为0
+                    if(this.data[row][col]!=0){
+                        if(this.data[row][col-1]==0||this.data[row][col]==this.data[row][col-1]){
+                            return true;
+                        }
+                    }
+                }
+            }
+            return false;
+        },
+        canRight:function(){//判断能否右移，原理同上
+            for(var row=0;row<4;row++){
+                for(var col=2;col>=0;col--){
+                    if(this.data[row][col]!=0){
+                        if(this.data[row][col+1]==0||this.data[row][col]==this.data[row][col+1]){
+                            return true;
+                        }
+                    }
+                }
+            }
+            return false;
+        },
+        canUp:function(){//判断能否上移，原理同上
+            for(var row=1;row<4;row++){
+                for(var col=0;col<4;col++){
+                    if(this.data[row][col]!=0){
+                        if(this.data[row-1][col]==0||this.data[row][col]==this.data[row-1][col]){
+                            return true;
+                        }
+                    }
+                }
+            }
+            return false;
+        },
+        canDown:function(){//判断能否下移，原理同上
+            for(var row=0;row<3;row++){
+                for(var col=0;col<4;col++){
+                    if(this.data[row][col]!=0){
+                        if(this.data[row+1][col]==0||this.data[row][col]==this.data[row+1][col]){
+                            return true;
+                        }
+                    }
+                }
+            }
+            return false;
+        },
+
+        /*以下getNextRight，getNextLeft，getNextDown，getNextUp对应函数用于获取指定方向下一个位置不为0的数字，
+        在确定相应方向可以移动的前提下，获得的不为0的数字用于进行移动操作
+        */
+
+        getNextRight:function(row,col){//用于左移判断中
+            //获得当前行中，指定位置右侧第一个不为0的数的位置，不存在则返回-1
+            for(var i=col+1;i<4;i++){
+                if(this.data[row][i]!=0){
+                    return i;
+                }
+            }
+            return -1;
+        },
+        getNextLeft:function(row,col){//用于右移判断中
+            //获得当前行中，指定位置左侧第一个不为0的数的位置，不存在则返回-1
+            for(var i=col-1;i>=0;i--){
+                if(this.data[row][i]!=0){
+                    return i;
+                }
+            }
+            return -1;
+        },
+        getNextDown:function(row,col){//用于上移判断中
+            //获得当前列中，指定位置下侧第一个不为0的数的位置，不存在则返回-1
+            for(var i=row+1;i<4;i++){
+                if(this.data[i][col]!=0){
+                    return i;
+                }
+            }
+            return -1;
+        },
+        getNextUp:function(row,col){//用于下移判断中
+            //获得当前列中，指定位置上侧第一个不为0的数的位置，不存在则返回-1
+            for(var i=row-1;i>=0;i--){
+                if(this.data[i][col]!=0){
+                    return i;
+                }
+            }
+            return -1;
+        },
+
+        /*moveLeftInRow，moveRightInRow，moveUpInCol，moveDownInCol为单行或单列的移动操作
+        */
+
+        moveLeftInRow:function(row){//左移一行，传入的参数为当前要移动的行号，此函数被将执行4次，从第1行开始
+            /*从0位置开始到2结束遍历row行中的每个元素，获得一个下一个不为0的元素的nextCol下标
+             若均为0则，判断合并：
+             如果自己等于0，用下一个元素的值替换自己，将下一个元素的值设为0，col--重置列数
+             如果自己等于下一个元素，将自己*2并将下一个元素设为0*/
+            for(var col=0;col<=2;col++){
+                var nextCol=this.getNextRight(row,col);
+                //返回-1代表此元素的右侧均为0，表明此行的移动已经完毕
+                if(nextCol==-1){
+                    break;
+                }else{
+                    if(this.data[row][col]==0){
+                        this.data[row][col]=this.data[row][nextCol];
+                        this.data[row][nextCol]=0;
+                        //传递待移动网格位置和移动目的地位置给动画任务，后者为目标位置
+                        animation.addTask(""+row+nextCol,""+row+col);
+                        /*重要，列位置减少的目的是要在下一次循环增加后保持比较位置不变，只有左侧网格无法再叠加之后才能进行下                         一个位置的比较，因此空位置网格至少需要两次比较操作*/
+                        col--;
+                    }else if(this.data[row][col]==this.data[row][nextCol]){
+                        this.data[row][col]*=2;
+                        this.score+=this.data[row][col];//相加网格块的值即为所得分数
+                        this.data[row][nextCol]=0;
+                        animation.addTask(""+row+nextCol,""+row+col);
+                    }
+                }
+            }
+        },
+        moveRightInRow:function(row){//右移当前行
+            //从右向左遍历检查，（最左边元素除外），原理同上
+            for(var col=3;col>0;col--){
+                var nextCol=this.getNextLeft(row,col);
+                if(nextCol==-1){
+                    break;
+                }else{
+                    if(this.data[row][col]==0){
+                        this.data[row][col]=this.data[row][nextCol];
+                        this.data[row][nextCol]=0;
+                        animation.addTask(""+row+nextCol,""+row+col);
+                        col++;
+                    }else if(this.data[row][col]==this.data[row][nextCol]){
+                        this.data[row][col]*=2;
+                        this.score+=this.data[row][col];
+                        this.data[row][nextCol]=0;
+                        animation.addTask(""+row+nextCol,""+row+col);
+                    }
+                }
+            }
+        },
+        moveUpInCol:function(col){//上移当前列
+            //从上向下遍历检查，（最下边元素除外），原理同上
+            for(var row=0;row<3;row++){
+                var nextRow=this.getNextDown(row,col);
+                if(nextRow==-1){
+                    break;
+                }else{
+                    if(this.data[row][col]==0){
+                        this.data[row][col]=this.data[nextRow][col];
+                        this.data[nextRow][col]=0;
+                        animation.addTask(""+nextRow+col,""+row+col);
+                        row--;
+                    }else if(this.data[row][col]==this.data[nextRow][col]){
+                        this.data[row][col]*=2;
+                        this.score+=this.data[row][col];
+                        this.data[nextRow][col]=0;
+                        animation.addTask(""+nextRow+col,""+row+col);
+                    }
+                }
+            }
+        },
+        moveDownInCol:function(col){//下移当前列
+            /*从下向上遍历检查，（最上边元素除外），原理同上*/
+            for(var row=3;row>0;row--){
+                var nextRow=this.getNextUp(row,col);
+                if(nextRow==-1){
+                    break;
+                }else{
+                    if(this.data[row][col]==0){
+                        this.data[row][col]=this.data[nextRow][col];
+                        this.data[nextRow][col]=0;
+                        animation.addTask(""+nextRow+col,""+row+col);
+                        row++;
+                    }else if(this.data[row][col]==this.data[nextRow][col]){
+                        this.data[row][col]*=2;
+                        this.score+=this.data[row][col];
+                        this.data[nextRow][col]=0;
+                        animation.addTask(""+nextRow+col,""+row+col);
+                    }
+                }
+            }
+        },
+
+        /* moveLeft, moveRight,moveUp,moveDown在指定方向上移动所以行或列
+        */
+
+        moveLeft:function(){//左移所有行
+            if(this.canLeft()){//判断能否左移
+                for(var row=0;row<4;row++){
+                    this.moveLeftInRow(row);//拆解为每一行分别进行左移
+                }
+                this.state=this.PLAYING;//当前状态进入动画播放状态，此时不能按键继续下一次操作
+                animation.start();
+                //在动画完成时
+                /*
+                setTimeout(function(){
+                    game.state=game.RUNNING;
+                    game.randomNum();//产生新的随机位置随机数
+                    game.updateView();//更新游戏状态信息
+
+                },animation.times*animation.interval);
+                */
+
+            }
+        },
+        moveRight:function(){//向右移动所有行
+            if(this.canRight()){//判断能否右移
+                for(var row=0;row<4;row++){
+                    this.moveRightInRow(row);
+                }
+                this.state=this.PLAYING;
+                animation.start();
+                /*
+                setTimeout(function(){
+                    game.state=game.RUNNING;
+                    game.randomNum();
+                    game.updateView();
+
+                },animation.times*animation.interval);
+                */
+            }
+        },
+        moveUp:function(){
+            if(this.canUp()){//先判断能否上移
+                for(var col=0;col<4;col++){
+                    this.moveUpInCol(col);
+                }
+                this.state=this.PLAYING;
+                animation.start();
+                /*
+                setTimeout(function(){
+                    game.state=game.RUNNING;
+                    game.randomNum();
+                    game.updateView();
+
+                },animation.times*animation.interval);
+                */
+            }
+        },
+        moveDown:function(){//向下移动所有行
+            if(this.canDown()){
+                for(var col=0;col<4;col++){
+                    this.moveDownInCol(col);
+                }
+                this.state=this.PLAYING;
+                animation.start();
+                /*
+                setTimeout(function(){
+                    game.state=game.RUNNING;
+                    game.randomNum();
+                    game.updateView();
+
+                },animation.times*animation.interval);
+                */
+            }
+        },
+
+        //判断游戏是否结束
+
+        isGameOver:function(){
+            //网格未被填满，不需要继续检查
+            if(!this.isFull()){return false;}
+            //此时网格已满，需检查相邻网格是否可以叠加，无法叠加则返回游戏结束标志
+            for(var row=0;row<4;row++){
+                for(var col=0;col<4;col++){
+                    //if(this.data[row][col==0]){return false;}
+                    if(col<3){//检查右侧相邻，不符合则表示左右无法移动
+                        if(this.data[row][col]==this.data[row][col+1]){
+                            return false;
+                        }
+                    }
+                    if(row<3){//检查下方相邻，不符合则表示上下无法移动
+                        if(this.data[row][col]==this.data[row+1][col]){
+                            return false;
+                        }
+                    }
+                }
+            }
+            //所有网格均无法移动，返回游戏结束标志
+            return true;
+        },
+
+        //更新游戏信息数据
+
+        updateView:function(){
+            //更新网格信息数据
+            for(var row=0;row<4;row++){
+                for(var col=0;col<4;col++){
+                    //获取到当前元素
+                    var div=document.getElementById("c"+row+col);
+                    //更改网格数值，如果当前值==0，就放入“”（在网格中不显示），否则放入当前值
+                    div.innerHTML=this.data[row][col]==0?"":this.data[row][col];
+                    //更改网格颜色，如果当前值==0，className=“cell”，否则className=“cell n”+当前值
+                    div.className=this.data[row][col]==0?"cell":"cell n"+this.data[row][col];
+                }
+            }
+            //更新游戏分数
+            var span=document.getElementById("score");
+            span.innerHTML=this.score;
+            //判断游戏是否结束
+            if(this.isGameOver()){
+                this.state=this.GAME_OVER;//游戏状态设置为结束状态
+                var div=document.getElementById("gameOver");
+                var finalSocre=document.getElementById("finalScore");
+                finalSocre.innerHTML=this.score;//显示最终得分
+                div.style.display="block";//显示游戏结束面板
+            }
+        }
+
+    }
+
+    //当窗口加载后，调用game对象的start方法
+
+    window.onload=function(){
+        game.start();
+        document.onkeydown=function(){
+            //游戏状态不为PLAYING时才可以按键
+            if(game.state!=game.PLAYING){
+                var event=window.event||arguments[0];//解决浏览器兼容性问题
+                if(game.state==game.RUNNING){
+                    if(event.keyCode==37){
+                        game.moveLeft();
+                    }else if(event.keyCode==39){
+                        game.moveRight();
+                    }
+                    else if(event.keyCode==38){
+                        game.moveUp();
+                    }
+                    else if(event.keyCode==40){
+                        game.moveDown();
+                    }
+                }else if(event.keyCode==13){//只有游戏结束时按下回车键才有用
+                    game.start();
+                }
+            }
+        }
+    }
+
+    //用于存储运动元素的自身信息，运动步长属性
+    function Task(obj,topStep,leftStep){
+        this.obj=obj;
+        this.topStep=topStep;
+        this.leftStep=leftStep;
+    }
+    //moveStep方法将当前元素对象移动一步，所有Task函数构建的对象均可调用此函数
+    Task.prototype.moveStep=function(){
+        var style = this.obj.currentStyle?this.obj.currentStyle:getComputedStyle(this.obj,null);
+        var top=parseInt(style.top);//parseInt用于取数字，舍弃px后缀
+        var left=parseInt(style.left);
+        this.obj.style.top=top+this.topStep+"px";
+        this.obj.style.left=left+this.leftStep+"px";
+    }
+    //清除元素对象的样式，使其返回原地
+    Task.prototype.clear=function(){
+        this.obj.style.left="";
+        this.obj.style.top="";
+    }
+    var animation={
+        times:10,//每个动画10步完成，属性自定义调整
+        interval:10,//10毫秒迈一步
+        timer:null,//保存定时器id的属性
+        tasks:[],//保存每次需要移动的任务
+        //获取移动元素的位置信息及运动信息并装入任务数组
+        addTask:function(source,target){
+            //console.log(source+","+target);
+            var sourceDiv = document.getElementById("c"+source);//获取待移动位置元素
+            var targetDiv = document.getElementById("c"+target);//获取目标位置元素
+            //获取元素的样式，currentStyle兼容浏览器，getComputedStyle仅支持IE9+
+            var sourceStyle = sourceDiv.currentStyle?sourceDiv.currentStyle:window.getComputedStyle(sourceDiv);
+            var targetStyle= targetDiv.currentStyle?targetDiv.currentStyle:window.getComputedStyle(targetDiv);
+            /*划分动画每步步长，默认折算比例为10（this.times默认为10）
+              要得到水平和垂直方向的移动距离进行移动
+             */
+            var topStep=(parseInt(targetStyle.top)-parseInt(sourceStyle.top))/this.times;
+            var leftStep=(parseInt(targetStyle.left)-parseInt(sourceStyle.left))/this.times;
+            var task=new Task(sourceDiv,topStep,leftStep);
+            this.tasks.push(task);//将包含运动信息的task对象装入运动任务数组
+        },
+
+        start:function(){
+            this.timer=setInterval(function(){
+                for(var i=0;i<animation.tasks.length;i++){
+                    animation.tasks[i].moveStep();
+                }
+                animation.times--;
+                if(animation.times==0){
+                    //动画结束后使网格回到初始位置，即网格到达目标位置会立即返回并不随之停止移动，仅为达到动动画效果
+                    for(var i=0;i<animation.tasks.length;i++){
+                        animation.tasks[i].clear();
+                    }
+                    clearInterval(animation.timer);//清除定时器
+                    //重置动画信息
+                    animation.timer=null;
+                    animation.tasks=[];
+                    animation.times=10;
+                    //解除动画状态中的禁止操作设定
+                    game.state=game.RUNNING;
+                    game.randomNum();//产生新的随机位置随机数
+                    game.updateView();//更新游戏状态信息
+                }
+            },this.interval);
+        }
+    }
+</script>
+</html>
